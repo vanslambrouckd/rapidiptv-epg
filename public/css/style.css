@@ -1,4 +1,21 @@
+body {
+    padding-top: 2rem;
+    padding-bottom: 2rem;    
+}
+
 #source_channels,
-#holland_channels {
-    height:500px;
+#ddl_epg {
+    height:1000px;
+}
+
+.js-status {
+    display:none;
+}
+
+.row {
+    margin-bottom: 1rem;
+}
+
+#intro {
+    font-size:0.7rem;
 }

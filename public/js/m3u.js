@@ -1,6 +1,12 @@
 (function () {
     var Item = require('./item');
     var _ = require('./libs/lodash');
+    var fs = require('fs');
+    var xml2js = require('xml2js');
+    var parseString = require('xml2js').parseString;
+    var parser = new xml2js.Parser();
+    var util = require('util');
+    var path = require('path');
 
     function M3U() {    
         this.naam = 'david';
@@ -18,11 +24,9 @@
         return this.items;
     }
 
-    M3U.prototype._loadFromFile = function(filePath) {
+    M3U.prototype._loadFromFile = function(filePath, callback) {
         //ASYNC
-        var deferred = new $.Deferred();
-
-        var fs = require('fs');         
+        // var deferred = new $.Deferred();
         var stream = fs.createReadStream(filePath);
         stream.setEncoding('utf8');
         this.lines = [];
@@ -42,58 +46,107 @@
         // });
 
         stream.on('end', function() {
-           deferred.resolve(items);    
+            callback(items);
         });
-        return deferred.promise();
+        // return deferred.promise();
     }
 
     M3U.prototype.link = function(list_holland, list_rapid) {
         
     }
 
-    M3U.prototype.loadFromFile = function(filePath, clientportal_file = false) {
+    M3U.prototype.loadFromFile = function(filePath, clientportal_file = false, callback) {
+        //https://github.com/maxogden/art-of-node#callbacks
         //ASYNC
-        var deferred = new $.Deferred();
+        // var deferred = new $.Deferred();
+
+        filePathOrig = filePath;
+        filename = path.basename(filePath);
+        pathname = path.dirname(filePath);
+        filePath = pathname + '/'+filename+'.tmp';
+        var fs = require('fs-extra');
+        fs.copySync(filePathOrig, filePath);
+
+        // fs.createReadStream(filePathOrig).pipe(fs.createWriteStream(filePath));
+        
+        fd = fs.openSync(filePath, 'a');
+        fs.writeSync(fd, "\r\n");
+        fs.closeSync(fd);
 
         self = this;
-        $.when(this._loadFromFile(filePath)).done(function(ret) {
+        this._loadFromFile(filePath, function(ret) {
             self.items = ret;
             if (clientportal_file) {
                 self.lines.forEach(function(line, index) {
                     var str_client = 'http://clientportal.link:8080';
                     if (line.substr(0, str_client.length) == str_client) {
-                        //console.log(index + 'clientportal regel');
+                        
                         prev_line = index-1;
                         item = self.parseLine(self.lines[prev_line]);
-                        // console.log(item.get('name'));
-                        // console.log(line);
+                        
                         if (item != null) {
                             match = self._findByTag('name', item.get('name'));
                             if (match) {
                                 match.set('clientportal_link', line);
+                                // console.log(match);
 
                                 //update collection item
-                                index = _.findIndex(self.items, function(o) { return o.get('tvg-id') == 'NPO 3 HD'; });
+                                index = _.findIndex(self.items, function(o) { return o.get('name') == item.get('name'); });
                                 if (index != -1) {
                                     self.items[index] = match;
-                                    // console.log(index);
-                                    // console.log(match.get('clientportal_link'));
+                                } else {
+                                    console.log('item not found');
                                 }
+                            } else {
+                                console.log("name '"+item.get('name')+"' not found");    
                             }
+                        } else {
+                            console.log('prev item not found');
                         }
-                    } 
+                    }
                 });
             }
-            deferred.resolve(self.items);    
-            // console.log(self.items.length);
-        });        
-        return deferred.promise();
+            callback();
+        });
     }
 
-    // M3U.prototype._updateArrayObject = function() {
-    //     //helper function
+    M3U.prototype.loadPerfectPlayerXML = function(filename, callback) {
+        fs.readFile(filename, 'utf8', function(err, data) {
+            parser.parseString(data, function (err, result) {
+                result = jQuery.parseJSON(JSON.stringify(result));
+                channels = [];
+                result.Settings.ChannelInfo.forEach(function(item, index) {
+                    channel = {};
+                    channel['tvg-id'] = item.$['tvg-id'];
+                    channel['tvg-logo'] = item.$['tvg-logo'];
+                    channel['tvg-name'] = item.$['tvg-name'];
+                    channel['clientportal_link'] = item.$['line2'];
+                    channel['tvg-shift'] = item.$['tvg-shift'];
+                    // console.log(channel);
+                    channels.push(channel);
+                });
+                callback(channels);
+            });
+        });
+    }
 
-    // }
+    M3U.prototype.loadTVGuideJSON = function(filename, callback) {
+        //https://www.thepolyglotdeveloper.com/2015/01/parse-xml-response-nodejs/
+        fs.readFile(filename, 'utf8', function(err, data) {
+            parser.parseString(data, function (err, result) {
+                tvguide = jQuery.parseJSON(JSON.stringify(result));
+                channels = [];
+                tvguide.tv.channel.forEach(function(item) {
+                    channel = {};
+                    channel['id'] = item.$.id;
+                    channel['display-name'] = item['display-name'][0]._;
+                    channel['url'] = item.url
+                    channels.push(channel);
+                });
+                callback(channels);
+            });
+        });
+    }
 
     var propertyMap = [
         'tvg-id',
@@ -111,20 +164,33 @@
         self.lines.forEach(function(line, index) {
             var str_client = 'http://clientportal.link:8080';
             if (line.substr(0, str_client.length) == str_client) {
-                //console.log(index + 'clientportal regel');
                 prev_line = index-1;
                 item = self.parseLine(self.lines[prev_line]);
-                //console.log(item);
-                // console.log(item.get('name'));
-                // console.log(line);
-
             } 
+        });
+    }
+
+    M3U.prototype._findIndexByTag = function(tag, value) {
+        return _.findIndex(self.getItems(), function(o) {
+            if (o.get(tag) != null) {
+                if (tag == 'clientportal_link') {
+                    return o.get(tag).indexOf(value) != -1;
+                }
+                return o.get(tag) == value;
+            }
+            return -1;
         });
     }
 
     M3U.prototype._findByTag = function(tag, value) {
         return _.find(self.getItems(), function(o) {
-            return o.get(tag) == value;
+            if (o.get(tag) != null) {
+                if (tag == 'clientportal_link') {
+                    return o.get(tag).indexOf(value) != -1;
+                }
+                return o.get(tag) == value;
+            }
+            return false;
         });
     }
 
@@ -156,16 +222,8 @@
             tags.forEach(function(tag) {
                 item.set(tag.key, tag.value);
             });
-            //console.log(item.get('name'));
 
             return item;
-        } else {
-            var str_client = 'http://clientportal.link:8080';
-            if (line.substr(0, str_client.length) == str_client) {
-                //console.log('clientportal regel');
-            } else {
-                //console.log('ongeldige regel:'+line);    
-            }
         }
         return null;
     }
@@ -183,10 +241,5 @@
             buffer = buffer.substr(offset);
         });
     }
-
-    // function M3UParser(data) {
-
-    // }
-
     module.exports = M3U;
 }());
