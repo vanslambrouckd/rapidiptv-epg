@@ -48,8 +48,8 @@
             <!-- <div class="form-group">
                 <label for="xml">Channels (rapidiptv):</label>
                 <input type="text" class="form-control" id="xml" value="./public/output/EXTINF.m3u" placeholder="./public/output/EXTINF.m3u">
-            </div>          
-            <button type="submit" class="btn btn-primary" id="btn-load-xml">load</button>   -->
+            </div>           -->
+            <button type="submit" class="btn btn-primary" id="btn-load-xml">load</button>
           </form>
         </div>
       </div>
@@ -59,34 +59,32 @@
           <div id="warning" class="js-status alert alert-warning">Bezig met converteren...</div>
           <div id="error" class="js-status alert alert-danger"></div>  
         </div>
-        
       </div>
-      <!-- <div class="row">
+      <div class="row">
         <div class="col-xs-6">
           <div class="form-group">
-              <label for="exampleSelect2">Channels</label>
+              <label for="groups">Group:</label>
+              <select class="form-control" id="groups">
+              </select>
+            </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-xs-6">
+          <div class="form-group">
+              <label for="source_channels">Channels</label>
               <select multiple class="form-control" id="source_channels">
-                <option>1</option>
-                <option>2</option>
-                <option>3</option>
-                <option>4</option>
-                <option>5</option>
               </select>
             </div>
         </div>
         <div class="col-xs-6">
           <div class="form-group">
-              <label for="exampleSelect2">Epg</label>
-              <select multiple class="form-control" id="ddl_epg">
-                <option>1</option>
-                <option>2</option>
-                <option>3</option>
-                <option>4</option>
-                <option>5</option>
+              <label for="source_channels">Ordered channels</label>
+              <select multiple class="form-control" id="ordered_channels">
               </select>
             </div>
         </div>
-      </div> -->
+      </div>
     </div>
   </body>
 
