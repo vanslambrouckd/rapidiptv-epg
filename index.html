@@ -1,98 +1,81 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta http-equiv="x-ua-compatible" content="ie=edge">
-    <title>RapidIPTV epg updater</title>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <title>RapidIPTV epg updater</title>
 
-    <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.5/css/bootstrap.min.css" integrity="sha384-AysaV+vQoT3kOAXZkl02PThvDr8HYKPZhNT5h/CXfBThSRXQ6jW5DO2ekP5ViFdi" crossorigin="anonymous"> -->
-    <link rel="stylesheet" href="public/css/bootstrap.min.css">
-    <link rel="stylesheet" href="public/css/style.css">
+  <!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.5/css/bootstrap.min.css" integrity="sha384-AysaV+vQoT3kOAXZkl02PThvDr8HYKPZhNT5h/CXfBThSRXQ6jW5DO2ekP5ViFdi" crossorigin="anonymous"> -->
+  <link rel="stylesheet" href="public/css/bootstrap.min.css">
+  <link rel="stylesheet" href="public/css/style.css">
+  <link rel="stylesheet" href="http://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
 
-  </head>
-  <body>
-    <div class="container">
-      <h1>Update RapidIPTV list</h1>
-      <!-- All of the Node.js APIs are available in this renderer process. -->
+</head>
+<body>
+  <div class="container">
+    <h1>Update RapidIPTV list</h1>
+    <!-- All of the Node.js APIs are available in this renderer process. -->
       <!-- We are using Node.js <script>document.write(process.versions.node)</script>,
       Chromium <script>document.write(process.versions.chrome)</script>,
       and Electron <script>document.write(process.versions.electron)</script>. -->
       <div class="row">
         <div class="col-xs-12">
-          <div id="intro" class="alert alert-warning">
-            Via perfect player kan je epg aan source list van rapidiptv m3u koppelen.<br />
-            In perfectplayer kan je dit enkel saven als xml, niet als m3u.<br />
-            deze functie leest die xml in, en wijzigt de bron m3u die je van rapidiptv kreeg, met de nieuwe data
-            configuratie perfect player:
-            epgurl = http://epg.kodi-forum.nl/tvguide.xml<br />
-            providers playlist = http://clientportal.link:8080/get.php?username=XXXXX&password=XXXXX&type=m3u_plus&output=ts<br />
-          </div>
-        </div>
-        
-      </div>
-      
-
-      <div class="row">
-        <div class="col-xs-12">
           <form class="form">
             <div class="form-group">
-                <label for="xml">RapidIPTV m3u file:</label>
-                <input type="text" class="form-control" id="rapidm3u" value="./public/output/source.m3u" placeholder="./public/output/source.m3u">
+              <label for="xml">RapidIPTV m3u file:</label>
+              <input type="text" class="form-control" id="rapidm3u" value="./public/output/source.m3u" placeholder="./public/output/source.m3u">
             </div>          
-            <div class="form-group">
-                <label for="xml">Perfect Player xml:</label>
-                <input type="text" class="form-control" id="perfectplayer" value="./public/output/perfectplayer.xml" placeholder="./public/output/perfectplayer.xml">
-            </div>      
-            <button type="submit" class="btn btn-primary" id="btn-load-rapid">convert</button>  
-            <!-- <div class="form-group">
-                <label for="xml">Channels (rapidiptv):</label>
-                <input type="text" class="form-control" id="xml" value="./public/output/EXTINF.m3u" placeholder="./public/output/EXTINF.m3u">
-            </div>           -->
-            <button type="submit" class="btn btn-primary" id="btn-load-xml">load</button>
-          </form>
+              <button type="submit" class="btn btn-primary" id="btn-load-xml">load</button>
+            </form>
+          </div>
         </div>
-      </div>
-      <div class="row">
-        <div class="col-xs-12">
-          <div id="success" class="js-status alert alert-success"></div>
-          <div id="warning" class="js-status alert alert-warning">Bezig met converteren...</div>
-          <div id="error" class="js-status alert alert-danger"></div>  
+        <div class="row">
+          <div class="col-xs-12">
+            <div id="success" class="js-status alert alert-success"></div>
+            <div id="warning" class="js-status alert alert-warning">Bezig met converteren...</div>
+            <div id="error" class="js-status alert alert-danger"></div>  
+          </div>
         </div>
-      </div>
-      <div class="row">
-        <div class="col-xs-6">
-          <div class="form-group">
-              <label for="groups">Group:</label>
-              <select class="form-control" id="groups">
-              </select>
+        <div id="channel_editor">
+          <div class="row">
+            <div class="col-xs-6">
+              <div class="form-group">
+                <label for="groups">Group:</label>
+                <select class="form-control" id="groups">
+                </select>
+              </div>
             </div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-xs-6">
-          <div class="form-group">
-              <label for="source_channels">Channels</label>
-              <select multiple class="form-control" id="source_channels">
-              </select>
+          </div>
+          <div class="row">
+            <div class="col-xs-6">
+              <div class="form-group">
+                <label for="source_channels">Channels</label>
+                <select multiple class="form-control" id="source_channels">
+                </select>
+              </div>
             </div>
-        </div>
-        <div class="col-xs-6">
-          <div class="form-group">
-              <label for="source_channels">Ordered channels</label>
-              <select multiple class="form-control" id="ordered_channels">
-              </select>
+            <div class="col-xs-6">
+              <div class="form-group">
+                <label for="source_channels">Ordered channels</label>
+                <!-- <select multiple class="form-control" id="ordered_channels">
+              </select> -->
+              <ul id="ordered_channels">
+              </ul>
             </div>
+          </div>
         </div>
       </div>
     </div>
   </body>
 
-<script>
-  window.$ = window.jQuery = require('./jquery.min.js');
-</script>
+  <script>
+    window.$ = window.jQuery = require('./jquery.min.js');
+  </script>
   <script src="public/js/libs/jquery.min.js"></script>
+  <script src="http://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
   <script src="public/js/libs/tether.min.js"></script>
   <script src="public/js/libs/bootstrap.min.js"></script>
   <script src="public/js/main.js"></script>
-</html>
+  </html>

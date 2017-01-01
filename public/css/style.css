@@ -19,3 +19,19 @@ body {
 #intro {
     font-size:0.7rem;
 }
+
+#channel_editor {
+    display:none;
+}
+
+#ordered_channels li {
+    list-style:none;
+    cursor: hand;
+}
+
+#ordered_channels .js-delete {
+    float:right;
+    position: relative;
+    top:3px;
+    right:5px;
+}

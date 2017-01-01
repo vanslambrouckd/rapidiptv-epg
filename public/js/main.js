@@ -6,9 +6,39 @@
     var m3u = require('./public/js/m3u');
     var inspect = require('eyes').inspector({maxLength: false});
     var fs = require('fs');
+    db_filename = 'rapidiptv.sqlite';
+    var database = require('./public/js/db');
+    var dbo = new database(db_filename);
+    const storage = require('electron-storage');
+    const path_localstorage = 'localstorage.json';
+    localstorage = {};
 
     lijst_holland = new m3u();
     lijst_rapid = new m3u();
+
+    var group = '';
+
+    function changeGroup(event) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        group = $(this).val();
+        // console.clear();
+        // console.log(group);        
+        populateChannels(lijst_rapid.getItems(), group);
+        populateOrderedChannels(group);
+    }
+
+    // storage.get(path_localstorage, function(err, data) {
+    //     if (err) {
+    //         console.error(err);
+    //     } else {
+    //         localstorage = data;
+    //     }
+    //     console.log(localstorage);
+    // });
+    // localstorage.naam = 'david';
+    // storage.set(path_localstorage, localstorage);
+
 
     $('#btn-load-xml').on('click', function(event) {
         event.preventDefault();
@@ -18,11 +48,16 @@
         //filename = './public/output/source.m3u';
         loadFile(lijst_rapid, filename, true, function() {
             populateGroups(lijst_rapid.getItems());
+
+            $('#groups').on('change', changeGroup);
             item = _.first(lijst_rapid.getItems());
-            
-            populateChannels(lijst_rapid.getItems(), $('#groups').val());
-            // loadFile(lijst_holland, './public/output/EXTINF.m3u', false, function() {
-            // });
+
+            group = $('#groups').val();
+
+            populateChannels(lijst_rapid.getItems(), group);
+            populateOrderedChannels(group);
+
+            $('#channel_editor').show();
         });
 
         ipcRenderer.send('read-source-xml', 'david');
@@ -32,20 +67,7 @@
      });
     });
 
-    $('#btn-load-rapid').on('click', function(event) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        filename_rapid_m3u = $('#rapidm3u').val();
-        filename_perfectplayer_xml = $('#perfectplayer').val();
-        updateRapidList(filename_rapid_m3u, filename_perfectplayer_xml, exportRapidList.bind(null, './public/output/output.m3u'));
-
-        $('.js-status').hide();
-        $('#warning').show();
-    });
-    
-    
-
-   function exportRapidList(filename) {
+    function exportRapidList(filename) {
         lines = [];
         
         lijst_rapid.getItems().forEach(function(rapiditem, index) {
@@ -70,7 +92,7 @@
                 lines.push(rapiditem.get('clientportal_link'));
             }
         });
-       
+
         var file = fs.createWriteStream(filename);
         file.on('error', function(err) { 
             /* error handling */ 
@@ -149,8 +171,12 @@
         groups = _.sortBy(groups, function(item) {
             return item.get('group-title');
         });
+
+        group_title = item.get('group-title');
+        group_title = group_title.replace('#', '');
+        item.set('group-title', group_title);
         groups.forEach(function(item) {
-            $('#groups').append('<option value="' + item.get('name') + '">' + item.get('group-title') + '</option>');
+            $('#groups').append('<option value="' + item.get('group-title') + '">' + item.get('group-title') + '</option>');
         });
     }
 
@@ -158,12 +184,82 @@
         $('#source_channels').html('');
 
         channels = _.filter(channels, function(item) {
-            console.log(group);
             return item.get('group-title') == group;
         });
         channels.forEach(function(item) {
             $('#source_channels').append('<option value="' + item.get('name') + '">' + item.get('name') + '</option>');
-            // console.log(item);
         });
     }
+
+    function populateOrderedChannels(group) {
+        var stmt = dbo.db.prepare("SELECT * FROM channels WHERE groupname = :groupname", {':groupname' : group});
+        channels = [];
+        while (stmt.step()) {
+            channel = stmt.getAsObject();
+            channels.push(channel);
+        }
+        stmt.free();
+        $('#ordered_channels').html('');
+
+
+        channels.forEach(function(channel, index) {
+            addOrderedChannelItem(channel.name);
+        });
+        setOrderedChannelsSortable();
+    }
+
+    $('#source_channels').on('dblclick', function(event) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        channel = $(this).val()[0];
+        addChannel(channel, 0, group);
+    });
+
+    function addChannel(channel, sortorder, groupname) {
+        sql_params = [
+        channel,
+        sortorder,
+        groupname,
+        ];
+        dbo.db.run('INSERT INTO channels(name, sortorder, groupname) VALUES (:name, :sortorder, :groupname)', sql_params);
+        dbo.save();
+        addOrderedChannelItem(channel);
+    }
+
+    function addOrderedChannelItem(name) {
+        $('#ordered_channels').append('<li class="ui-state-default" data-name="'+name+'"><span class="ui-icon ui-icon-arrowthick-2-n-s"></span>'+name+'<i class="fa fa-trash js-delete" aria-hidden="true"></i></li>');
+    }
+    
+    function setOrderedChannelsSortable() {
+        $ordered_channels = $( "#ordered_channels" );
+        $ordered_channels.sortable();
+        $ordered_channels.disableSelection();
+        $ordered_channels.on( "sortstop", function( event, ui ) {
+            var sortedIDs = $ordered_channels.sortable("toArray", {attribute: 'data-name'});
+            // console.log(sortedIDs);
+            sql = 'DELETE FROM channels WHERE groupname = :groupname';
+            dbo.db.run(sql, [group]);
+
+            sortedIDs.forEach(function(item, index) {
+                sql_params = [
+                item,
+                index,
+                group
+                ];
+                dbo.db.run('INSERT INTO channels(name, sortorder, groupname) VALUES (:name, :sortorder, :groupname)', sql_params);
+            });
+            dbo.save();
+        });
+
+        $(document).on('click', "#ordered_channels li .js-delete", function(event){
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            console.log($(this).parent().attr('data-name'));
+            $(this).parent().remove();
+            sql = 'DELETE FROM channels WHERE groupname = :groupname AND name = :name';
+            dbo.db.run(sql, [group, $(this).parent().attr('data-name')]);
+            dbo.save();
+        });
+    }
+
 })();

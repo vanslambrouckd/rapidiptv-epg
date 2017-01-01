@@ -10,7 +10,6 @@
 
     function M3U() {    
         this.naam = 'david';
-        this.test = [];
         this.items = [];    
         this.properties = {};
     }
