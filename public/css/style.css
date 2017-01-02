@@ -27,6 +27,11 @@ body {
 #ordered_channels li {
     list-style:none;
     cursor: hand;
+    margin-bottom: 5px;
+}
+
+#ordered_channels label {
+    display:block;
 }
 
 #ordered_channels .js-delete {

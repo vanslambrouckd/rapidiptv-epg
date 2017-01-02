@@ -19,6 +19,22 @@
          fs.writeFileSync(this.filename, buffer);
      }
 
+     DB.prototype.getByName = function(name) {
+      var stmt = this.db.prepare("SELECT * FROM channels WHERE name = :name", {':name' : name});
+      // stmt.step();
+      // channel =  stmt.getAsObject();
+      // console.log(channel);
+      // stmt.free();
+      // return channel;
+      // channels = [];
+      channels = [];
+      if (stmt.step()) {
+          channel = stmt.getAsObject();
+          return channel;
+      }      
+      return null;
+     }
+
     module.exports = DB;
 }());
 

@@ -9,6 +9,8 @@
     db_filename = 'rapidiptv.sqlite';
     var database = require('./public/js/db');
     var dbo = new database(db_filename);
+    var xml2js = require('xml2js');
+    var parser = new xml2js.Parser();
     const storage = require('electron-storage');
     const path_localstorage = 'localstorage.json';
     localstorage = {};
@@ -17,13 +19,12 @@
     lijst_rapid = new m3u();
 
     var group = '';
+    var source_folder_epg_xml = './public/webgrabplus/';
 
     function changeGroup(event) {
         event.preventDefault();
         event.stopImmediatePropagation();
         group = $(this).val();
-        // console.clear();
-        // console.log(group);        
         populateChannels(lijst_rapid.getItems(), group);
         populateOrderedChannels(group);
     }
@@ -56,6 +57,7 @@
 
             populateChannels(lijst_rapid.getItems(), group);
             populateOrderedChannels(group);
+            // populateOrderedChannelsEpg(group);
 
             $('#channel_editor').show();
         });
@@ -63,8 +65,8 @@
         ipcRenderer.send('read-source-xml', 'david');
         ipcRenderer.send('async', 1);
         ipcRenderer.once('read-source-xml-status', function(event, arg) {
-         console.log('response='+arg);
-     });
+           console.log('response='+arg);
+       });
     });
 
     function exportRapidList(filename) {
@@ -141,7 +143,6 @@
                     console.log(channel['clientportal_link']+" not found!\r\n");
                 }
             });
-                // console.log(lijst_rapid.getItems());
                 callback();
             });
         });
@@ -191,21 +192,38 @@
         });
     }
 
-    function populateOrderedChannels(group) {
-        var stmt = dbo.db.prepare("SELECT * FROM channels WHERE groupname = :groupname", {':groupname' : group});
+    function getOrderedChannels(group) {
+        var stmt = dbo.db.prepare("SELECT * FROM channels WHERE groupname = :groupname ORDER BY sortorder ASC", {':groupname' : group});
         channels = [];
         while (stmt.step()) {
             channel = stmt.getAsObject();
             channels.push(channel);
         }
         stmt.free();
+        return channels;
+    }
+
+    function populateOrderedChannels(group) {
+
         $('#ordered_channels').html('');
 
-
-        channels.forEach(function(channel, index) {
+        getOrderedChannels(group).forEach(function(channel, index) {
             addOrderedChannelItem(channel.name);
         });
         setOrderedChannelsSortable();
+        updateSourceChannels();
+        initializeSelects();
+    }
+
+    function populateOrderedChannelsEpg(group) {
+        $('#ordered_channels_epg').html('');
+        getOrderedChannels(group).forEach(function(channel, index) {
+            addOrderedChannelEpgItem(channel.name);
+        });
+
+        $ordered_channels = $( "#ordered_channels_epg");
+        $ordered_channels.sortable();
+        $ordered_channels.disableSelection();
     }
 
     $('#source_channels').on('dblclick', function(event) {
@@ -213,7 +231,26 @@
         event.stopImmediatePropagation();
         channel = $(this).val()[0];
         addChannel(channel, 0, group);
+        updateSourceChannels();
+        initializeSelects();
     });
+
+    function updateSourceChannels() {
+        //de sourcechannel lijst updaten (reeds gekozen eruit filteren)
+        ordered = _.map(getOrderedChannels(group), 'name');
+
+        source = $('#source_channels option').map(function() {
+            return $(this).val();
+        });
+
+        diff = _.difference(source, ordered);
+        $('#source_channels').html('');
+        diff.forEach(function(item) {
+         $('#source_channels').append('<option value="' + item + '">' + item + '</option>'); 
+     })        
+    }
+
+
 
     function addChannel(channel, sortorder, groupname) {
         sql_params = [
@@ -227,7 +264,173 @@
     }
 
     function addOrderedChannelItem(name) {
-        $('#ordered_channels').append('<li class="ui-state-default" data-name="'+name+'"><span class="ui-icon ui-icon-arrowthick-2-n-s"></span>'+name+'<i class="fa fa-trash js-delete" aria-hidden="true"></i></li>');
+        // $('#ordered_channels').append('<li class="ui-state-default" data-name="'+name+'"><span class="ui-icon ui-icon-arrowthick-2-n-s"></span>'+name+'<i class="fa fa-trash js-delete" aria-hidden="true"></i></li>');
+        channel = dbo.getByName(name);
+        epg_site = epg_site_id = '';
+        if (channel != null) {
+            epg_site = channel.epg_site;
+            epg_site_id = channel.epg_site_id;
+        }
+
+        xmls = loadEpgXmls();
+        html = '<li class="ui-state-default"  data-name="'+name+'">';
+        html += '<label>';
+        html += name;
+        html += '<i class="fa fa-trash js-delete" aria-hidden="true"></i>';
+        html += '</label>';
+        html += '<select name="epg_xml" class="form-control form-control-sm epg_xml">';
+        html += '<option value="0">Please choose</option>';
+        xmls.forEach(function(xml) {
+            str_sel = (epg_site == xml)?' selected="selected"':'';
+            // console.log(channel._);
+            // console.log(channel.$.site);
+            html += '<option value="'+xml+'" '+str_sel+'>'+xml+'</option>';
+        });
+        html += '</select>';
+        html += '<select name="epg_channel" class="form-control form-control-sm epg_channel" id="'+name+'">';
+
+        html += '</select>';
+        html += '</li>';
+        $('#ordered_channels').append(html);
+
+        if (epg_site != null) {
+            //$ddl = $('#ordered_channels').find('[data-name="'+name+'"]').closest('.epg_channel');
+            $ddl = $('#ordered_channels').find("li[data-name='"+name+"']").find('.epg_channel');
+            populateEpgXmlChannels($ddl, source_folder_epg_xml+epg_site, epg_site_id);
+        }
+    }
+
+    function addOrderedChannelEpgItem(name) {
+        xmls = loadEpgXmls();
+        html = '<li data-name="'+name+'">';
+        html += name;
+        html += '<select name="epg_xml" class="form-control epg_xml">';
+        html += '<option value="">Please choose</option>';
+        xmls.forEach(function(xml) {
+            // console.log(channel._);
+            // console.log(channel.$.site);
+            // str_sel = epg_site_id == 
+            html += '<option value="'+xml+'">'+xml+'</option>';
+        });
+        html += '</select>';
+        html += '<select name="epg_channel" class="form-control epg_channel" id="'+name+'">';
+
+        html += '</select>';
+        html += '</li>';
+        $('#ordered_channels_epg').append(html);
+    }
+
+    $(document).on('change', '.epg_xml', function(event) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        xml_file = $(this).val();
+        $epg_channel = $(this).parent().find('.epg_channel');
+        if (xml_file != 0) {
+            epg_site = $(this).val();
+            populateEpgXmlChannels($epg_channel, source_folder_epg_xml+xml_file, '');
+        } else {
+            epg_site = xml_file = '';
+        }
+        name = $(this).parent().attr('data-name');
+        
+        sql_params = [
+        epg_site,
+        name,
+        ];
+        sql = "UPDATE channels SET epg_site = :epg_site, epg_site_id = '' WHERE name = :name";
+        dbo.db.run(sql, sql_params);
+        dbo.save();
+    });
+
+
+    $(document).on('change', '.epg_channel', function(event) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        epg_site_id = $(this).val();
+        
+        name = $(this).parent().attr('data-name');
+        sql_params = [
+        epg_site_id,
+        name,
+        ];
+        sql = "UPDATE channels SET epg_site_id = :epg_site_id WHERE name = :name";
+        dbo.db.run(sql, sql_params);
+        dbo.save();
+    });
+
+    function populateEpgXmlChannels($ddl, xmlPath, selected_val) {
+        $ddl.html('<option></option>');
+        getEpgXmlChannels(xmlPath, function(channels) {
+            console.log(xmlPath);
+            channels.forEach(function(channel, index) {
+               str_sel = (selected_val == channel._)?' selected="selected"':'';
+               html = '<option value="'+channel._+'" '+str_sel+'>'+channel._+'</option>';
+                 // console.log(html);
+                 $ddl.append(html);
+             });
+            // return channels;
+        });
+        initializeSelects();
+    }
+
+    function loadEpgXmls() {
+        // $webgrab_xmls = $('#webgrab_xmls');
+        // $webgrab_xmls.html('<option>Please choose</option>');
+        xmls = [];
+        files = fs.readdirSync(source_folder_epg_xml);
+        files.forEach(function(file) {
+            filter = /\.xml$/;
+            if (filter.test(file)) {
+                xmls.push(file);
+            }
+        });
+        return xmls;
+    }
+
+    function getEpgXmlChannels(xmlPath, callback) {
+        try {
+
+            data = fs.readFileSync(xmlPath);
+            parser.parseString(data, function (err, result) {
+                // console.log(err);
+                // console.log(result);
+                // return result;
+                channels = result.site.channels[0].channel;
+                callback(channels);
+            });    
+        } catch(err) {
+            callback([]);
+            console.log(err);
+        }
+        
+    }
+
+    // loadEpgConfig(loadEpgChannels);
+
+    function loadEpgConfig() {
+        channels = [];
+        data = fs.readFileSync('./public/WebGrab++.config.xml');
+        parser.parseString(data, function (err, result) {
+            //epg_config = result.settings.channel);
+            return result;
+        });
+        // fs.readFileSync('./public/WebGrab++.config.xml', function(err, data) {
+        //     parser.parseString(data, function (err, result) {
+        //         //epg_config = result.settings.channel);
+        //         callback(result);
+        //     });
+        // });
+    }
+
+    function loadEpgChannels(xmldata) {
+        // console.log(xmldata);
+        channels = xmldata.settings.channel;
+        // channels.forEach(function(channel) {
+        //     // console.log(channel);
+        //     // console.log(channel._);
+        //     // console.log(channel.$.site);
+        // });
+        return channels;
     }
     
     function setOrderedChannelsSortable() {
@@ -236,17 +439,18 @@
         $ordered_channels.disableSelection();
         $ordered_channels.on( "sortstop", function( event, ui ) {
             var sortedIDs = $ordered_channels.sortable("toArray", {attribute: 'data-name'});
-            // console.log(sortedIDs);
-            sql = 'DELETE FROM channels WHERE groupname = :groupname';
-            dbo.db.run(sql, [group]);
+            // sql = 'DELETE FROM channels WHERE groupname = :groupname';
+            // dbo.db.run(sql, [group]);
 
             sortedIDs.forEach(function(item, index) {
                 sql_params = [
-                item,
                 index,
+                item,
                 group
                 ];
-                dbo.db.run('INSERT INTO channels(name, sortorder, groupname) VALUES (:name, :sortorder, :groupname)', sql_params);
+                // dbo.db.run('INSERT INTO channels(name, sortorder, groupname) VALUES (:name, :sortorder, :groupname)', sql_params);
+                sql = 'UPDATE channels SET sortorder = :sortorder WHERE name = :name AND groupname = :groupname';
+                dbo.db.run(sql, sql_params);
             });
             dbo.save();
         });
@@ -254,7 +458,6 @@
         $(document).on('click', "#ordered_channels li .js-delete", function(event){
             event.preventDefault();
             event.stopImmediatePropagation();
-            console.log($(this).parent().attr('data-name'));
             $(this).parent().remove();
             sql = 'DELETE FROM channels WHERE groupname = :groupname AND name = :name';
             dbo.db.run(sql, [group, $(this).parent().attr('data-name')]);
@@ -262,4 +465,12 @@
         });
     }
 
+    function initializeSelects() {
+        $(".epg_xml, .epg_channel, #groups").select2({
+            width: "100%"
+        });    
+    }
+
+    initializeSelects();
+    
 })();
