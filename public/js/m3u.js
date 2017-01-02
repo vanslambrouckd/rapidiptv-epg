@@ -9,7 +9,6 @@
     var path = require('path');
 
     function M3U() {    
-        this.naam = 'david';
         this.items = [];    
         this.properties = {};
     }

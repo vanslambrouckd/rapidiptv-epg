@@ -65,8 +65,8 @@
         ipcRenderer.send('read-source-xml', 'david');
         ipcRenderer.send('async', 1);
         ipcRenderer.once('read-source-xml-status', function(event, arg) {
-           console.log('response='+arg);
-       });
+         console.log('response='+arg);
+     });
     });
 
     function exportRapidList(filename) {
@@ -193,7 +193,16 @@
     }
 
     function getOrderedChannels(group) {
-        var stmt = dbo.db.prepare("SELECT * FROM channels WHERE groupname = :groupname ORDER BY sortorder ASC", {':groupname' : group});
+        sql = 'SELECT * FROM channels WHERE 1 ';
+        if (group != '') {
+            sql += ' AND groupname = :groupname ';
+            sql += ' ORDER BY groupname ASC, sortorder ASC';
+            sql_params = [group];
+        } else {
+            sql += ' ORDER BY sortorder ASC';
+            sql_params = [];
+        }
+        var stmt = dbo.db.prepare(sql, sql_params);
         channels = [];
         while (stmt.step()) {
             channel = stmt.getAsObject();
@@ -247,8 +256,8 @@
         diff = _.difference(source, ordered);
         $('#source_channels').html('');
         diff.forEach(function(item) {
-         $('#source_channels').append('<option value="' + item + '">' + item + '</option>'); 
-     })        
+           $('#source_channels').append('<option value="' + item + '">' + item + '</option>'); 
+       })        
     }
 
 
@@ -364,9 +373,8 @@
         getEpgXmlChannels(xmlPath, function(channels) {
             console.log(xmlPath);
             channels.forEach(function(channel, index) {
-               str_sel = (selected_val == channel._)?' selected="selected"':'';
-               html = '<option value="'+channel._+'" '+str_sel+'>'+channel._+'</option>';
-                 // console.log(html);
+             str_sel = (selected_val == channel._)?' selected="selected"':'';
+             html = '<option value="'+channel.$.site_id+'" '+str_sel+'>'+channel._+'</option>';
                  $ddl.append(html);
              });
             // return channels;
@@ -475,13 +483,51 @@
         });    
     }
 
-
     // $('#collapse-ordered').on('click', function(event) {
     //     event.preventDefault();
     //     console.log('jaa');
     //     // $('#ordered_channels_epg').find('.epg_xml').hide();
     //     console.log($('#ordered_channels_epg').find('.epg_xml'));
     // });
+
+
+    $('#btn-save-config').on('click', function(event) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        channels = getOrderedChannels('');
+        lines = [];
+        channels.forEach(function(channel, index) {
+            // line = '<channel update="i" site="tvtv.de.onscreen" site_id="ARD" xmltv_id="Das Erste">ee Das Erste HD</channel>';
+            m3u_item = lijst_rapid._findByTag('name', channel.name);
+            if (m3u_item) {
+                if (m3u_item.get('tvg-id') != '') {
+                    xmltv_id = m3u_item.get('tvg-id');
+                } else if (m3u_item['tvg-name'] != '') {
+                    xmltv_id = m3u_item.get('tvg-name');
+                } else {
+                    xmltv_id = '';
+                }
+
+                if (xmltv_id != '') {
+                    line = '<channel update="i" site="'+channel.epg_site+'" site_id="'+channel.epg_site_id+'" xmltv_id="'+xmltv_id+'">'+m3u_item.get('name')+'</channel>';    
+                    lines.push(line);
+                }
+            }
+        });
+        
+        filename = './public/output/ouput_webgrab.xml';
+        var file = fs.createWriteStream(filename);
+        file.on('error', function(err) { 
+            /* error handling */ 
+        });
+        lines.forEach(function(line) { 
+            file.write(line + '\n'); 
+        });
+        file.end(function() {
+            console.log(filename + ' geschreven');
+        });
+    });
 
     initializeSelects();
     
