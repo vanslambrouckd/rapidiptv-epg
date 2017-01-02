@@ -238,6 +238,7 @@
     function updateSourceChannels() {
         //de sourcechannel lijst updaten (reeds gekozen eruit filteren)
         ordered = _.map(getOrderedChannels(group), 'name');
+        populateChannels(lijst_rapid.getItems(), group);
 
         source = $('#source_channels option').map(function() {
             return $(this).val();
@@ -461,8 +462,10 @@
             //console.log($(this));
             $(this).closest('li').remove();
             sql = 'DELETE FROM channels WHERE groupname = :groupname AND name = :name';
-            dbo.db.run(sql, [group, $(this).parent().attr('data-name')]);
+            sql_params = [group, $(this).closest('li').attr('data-name')];
+            dbo.db.run(sql, sql_params);
             dbo.save();
+            updateSourceChannels();
         });
     }
 
