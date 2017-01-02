@@ -6,6 +6,8 @@ body {
 #source_channels,
 #ordered_channels {
     height:1000px;
+    margin: 0px;
+    padding:0px;
 }
 
 .js-status {

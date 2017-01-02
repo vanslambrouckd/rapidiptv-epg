@@ -458,7 +458,8 @@
         $(document).on('click', "#ordered_channels li .js-delete", function(event){
             event.preventDefault();
             event.stopImmediatePropagation();
-            $(this).parent().remove();
+            //console.log($(this));
+            $(this).closest('li').remove();
             sql = 'DELETE FROM channels WHERE groupname = :groupname AND name = :name';
             dbo.db.run(sql, [group, $(this).parent().attr('data-name')]);
             dbo.save();
@@ -470,6 +471,14 @@
             width: "100%"
         });    
     }
+
+
+    // $('#collapse-ordered').on('click', function(event) {
+    //     event.preventDefault();
+    //     console.log('jaa');
+    //     // $('#ordered_channels_epg').find('.epg_xml').hide();
+    //     console.log($('#ordered_channels_epg').find('.epg_xml'));
+    // });
 
     initializeSelects();
     

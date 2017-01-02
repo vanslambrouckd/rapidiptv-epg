@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="public/css/style.css">
   <link rel="stylesheet" href="http://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
   <link rel="stylesheet" href="public/css/bootstrap.min.css">
+  <link rel="stylesheet" href="public/css/font-awesome-4.7.0/css/font-awesome.min.css">
   <link href="public/js/libs/select2-4.0.3/dist/css/select2.min.css" rel="stylesheet" />
   <link href="public/css/select2-bootstrap.css" rel="stylesheet" />
 </head>
@@ -33,6 +34,7 @@
               <input type="text" class="form-control" id="rapidm3u" value="./public/output/source.m3u" placeholder="./public/output/source.m3u">
             </div>          
             <button type="submit" class="btn btn-primary" id="btn-load-xml">load</button>
+            <button type="submit" class="btn btn-primary" id="btn-save-config">save config</button>
           </form>
         </div>
       </div>
@@ -63,9 +65,9 @@
           </div>
           <div class="col-xs-6">
             <div class="form-group">
-              <label for="source_channels">Ordered channels</label>
-                <!-- <select multiple class="form-control" id="ordered_channels">
-              </select> -->
+              <label for="source_channels">Ordered channels
+                <!-- (<span id="expand-ordered">+</span> / <span id="collapse-ordered">-</span>) -->
+              </label>
               <ul id="ordered_channels">
               </ul>
             </div>
